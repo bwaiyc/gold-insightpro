@@ -1,0 +1,429 @@
+import { useState, useMemo } from "react";
+import { motion } from "framer-motion";
+import {
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Shield,
+  BarChart3,
+} from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  BarChart,
+  Bar,
+  Cell,
+} from "recharts";
+import {
+  MOCK_GOLD_PRICE,
+  MOCK_PREDICTED_PRICE,
+  MOCK_CONFIDENCE,
+  MOCK_SIGNAL,
+} from "@/lib/mockData";
+import { RANGE_DATA, RANGE_LABELS } from "@/lib/chartData";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+
+const signalConfig = {
+  Bullish: { color: "text-green-600", bg: "bg-green-50", icon: TrendingUp },
+  Bearish: { color: "text-red-600", bg: "bg-red-50", icon: TrendingDown },
+  Neutral: { color: "text-muted-foreground", bg: "bg-muted", icon: Minus },
+};
+
+export default function DashboardPage() {
+  useAuth();
+
+  const signal = signalConfig[MOCK_SIGNAL] ?? signalConfig.Neutral;
+  const SignalIcon = signal.icon;
+
+  const [activeRange, setActiveRange] = useState<string>("1M");
+  const [showVolume, setShowVolume] = useState(true);
+
+  const chartData = useMemo(() => RANGE_DATA[activeRange] ?? [], [activeRange]);
+
+  const dailyChange = MOCK_GOLD_PRICE.change;
+  const dailyChangePct = MOCK_GOLD_PRICE.changePercent;
+
+  const priceMin = useMemo(() => {
+    if (!chartData.length) return 0;
+    const prices = chartData.map((d) => d.price);
+    return Math.floor(Math.min(...prices) - 10);
+  }, [chartData]);
+
+  const priceMax = useMemo(() => {
+    if (!chartData.length) return 100;
+    const prices = chartData.map((d) => d.price);
+    return Math.ceil(Math.max(...prices) + 10);
+  }, [chartData]);
+
+  const tickInterval = useMemo(() => {
+    const len = chartData.length;
+    if (len <= 10) return 0;
+    if (len <= 30) return 3;
+    if (len <= 60) return 1;
+    return Math.floor(len / 10);
+  }, [chartData]);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container py-6">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className="mb-6">
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <h1 className="text-3xl font-display font-bold tracking-tight">
+                Gold (XAU/USD)
+              </h1>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                COMEX · Spot Price
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-3 mt-2 flex-wrap">
+              <span className="text-4xl font-display font-bold">
+                $
+                {MOCK_GOLD_PRICE.current.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
+              <span
+                className={`text-lg font-semibold ${
+                  dailyChange >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {dailyChange >= 0 ? "+" : ""}
+                {dailyChange.toFixed(2)} ({dailyChangePct >= 0 ? "+" : ""}
+                {dailyChangePct.toFixed(2)}%)
+              </span>
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-1">
+              As of Feb 28, 2025 · Market Closed · Updated at 4:00 PM EST
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="card-premium p-5">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                Current Price
+              </p>
+              <p className="text-2xl font-display font-bold mt-1">
+                ${MOCK_GOLD_PRICE.current.toLocaleString()}
+              </p>
+              <p
+                className={`text-xs mt-1 ${
+                  dailyChangePct >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {dailyChangePct >= 0 ? "+" : ""}
+                {dailyChangePct.toFixed(1)}% today
+              </p>
+            </div>
+
+            <div className="card-premium p-5">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                Next Month Forecast
+              </p>
+              <p className="text-2xl font-display font-bold mt-1">
+                ${MOCK_PREDICTED_PRICE.toLocaleString()}
+              </p>
+              <p className="text-xs mt-1" style={{ color: "hsl(43 72% 42%)" }}>
+                {((MOCK_PREDICTED_PRICE / MOCK_GOLD_PRICE.current - 1) * 100) >= 0
+                  ? "+"
+                  : ""}
+                {(
+                  (MOCK_PREDICTED_PRICE / MOCK_GOLD_PRICE.current - 1) *
+                  100
+                ).toFixed(1)}
+                % projected
+              </p>
+            </div>
+
+            <div className="card-premium p-5">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                Market Signal
+              </p>
+              <div
+                className={`flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg ${signal.bg} w-fit`}
+              >
+                <SignalIcon className={`h-4 w-4 ${signal.color}`} />
+                <span className={`text-sm font-semibold ${signal.color}`}>
+                  {MOCK_SIGNAL}
+                </span>
+              </div>
+            </div>
+
+            <div className="card-premium p-5">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                Forecast Confidence
+              </p>
+              <p className="text-2xl font-display font-bold mt-1">
+                {MOCK_CONFIDENCE}%
+              </p>
+              <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full gold-gradient"
+                  style={{ width: `${MOCK_CONFIDENCE}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="card-premium p-0 mb-6 overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 pb-3 border-b border-border">
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                {RANGE_LABELS.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setActiveRange(r)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                      activeRange === r
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground h-8"
+                  onClick={() => setShowVolume(!showVolume)}
+                >
+                  <BarChart3 className="h-3.5 w-3.5 mr-1" />
+                  Volume {showVolume ? "On" : "Off"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="px-4 pt-4">
+              <ResponsiveContainer width="100%" height={340}>
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="priceFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="0%"
+                        stopColor="hsl(43 72% 42%)"
+                        stopOpacity={0.12}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor="hsl(43 72% 42%)"
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  </defs>
+
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(220 14% 92%)"
+                    vertical={false}
+                  />
+
+                  <XAxis
+                    dataKey="time"
+                    tick={{ fontSize: 11, fill: "hsl(220 10% 46%)" }}
+                    axisLine={{ stroke: "hsl(220 14% 89%)" }}
+                    tickLine={false}
+                    interval={tickInterval}
+                  />
+
+                  <YAxis
+                    domain={[priceMin, priceMax]}
+                    tick={{ fontSize: 11, fill: "hsl(220 10% 46%)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) => `$${v.toLocaleString()}`}
+                    width={72}
+                  />
+
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 10,
+                      border: "1px solid hsl(220 14% 89%)",
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                      fontSize: 13,
+                    }}
+                    formatter={(value: number) => [
+                      `$${value.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                      })}`,
+                      "Price",
+                    ]}
+                    labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                  />
+
+                  <Area
+                    type="monotone"
+                    dataKey="price"
+                    stroke="hsl(43 72% 42%)"
+                    strokeWidth={2}
+                    fill="url(#priceFill)"
+                    dot={false}
+                    activeDot={{
+                      r: 4,
+                      stroke: "hsl(43 72% 42%)",
+                      strokeWidth: 2,
+                      fill: "white",
+                    }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {showVolume && (
+              <div className="px-4 pb-4">
+                <ResponsiveContainer width="100%" height={60}>
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <XAxis dataKey="time" hide />
+                    <YAxis hide />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "1px solid hsl(220 14% 89%)",
+                        fontSize: 12,
+                      }}
+                      formatter={(value: number) => [
+                        value.toLocaleString(),
+                        "Volume",
+                      ]}
+                    />
+                    <Bar dataKey="volume" radius={[1, 1, 0, 0]}>
+                      {chartData.map((_, i) => (
+                        <Cell
+                          key={i}
+                          fill={
+                            i > 0 && chartData[i].price >= chartData[i - 1].price
+                              ? "hsl(142 60% 55%)"
+                              : "hsl(0 72% 62%)"
+                          }
+                          fillOpacity={0.45}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          <div className="card-premium p-0 mb-6 overflow-hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 divide-x divide-y lg:divide-y-0 divide-border border-b border-border">
+              {[
+                { label: "Previous Close", value: "$2,340.10" },
+                { label: "Open", value: "$2,340.10" },
+                { label: "Day's Range", value: "$2,332.80 – $2,355.40" },
+                { label: "52 Week Range", value: "$1,984.20 – $2,355.40" },
+                { label: "Volume", value: "182,340" },
+                { label: "Avg. Volume", value: "168,520" },
+                { label: "Market Sentiment", value: "Bullish" },
+                { label: "USD Trend", value: "Weakening" },
+              ].map((item) => (
+                <div key={item.label} className="px-4 py-3">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wide leading-tight">
+                    {item.label}
+                  </p>
+                  <p className="text-sm font-semibold mt-0.5 text-foreground">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-6 flex flex-col lg:flex-row gap-6">
+              <div className="flex-1">
+                <h3 className="font-display font-semibold text-base mb-2 text-foreground">
+                  Gold Market Overview
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Gold prices remain elevated near record highs as persistent
+                  inflation concerns and geopolitical uncertainty continue to
+                  support safe-haven demand. The weakening US dollar has provided
+                  additional tailwinds, while central bank purchases — led by
+                  China, India, and Turkey — have reached multi-decade highs.
+                  Despite rising bond yields acting as a headwind, the net effect
+                  of macro drivers remains decisively bullish for the precious
+                  metal heading into Q2 2025.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4 shrink-0">
+                {[
+                  {
+                    label: "Inflation Outlook",
+                    value: "Elevated",
+                    sub: "CPI 3.1% YoY",
+                    color: "text-amber-600",
+                  },
+                  {
+                    label: "Bond Yield Trend",
+                    value: "Rising",
+                    sub: "10Y at 4.28%",
+                    color: "text-red-500",
+                  },
+                  {
+                    label: "Central Bank Demand",
+                    value: "Strong",
+                    sub: "1,037t in 2024",
+                    color: "text-green-600",
+                  },
+                  {
+                    label: "Safe-Haven Demand",
+                    value: "Elevated",
+                    sub: "Geopolitical risk ↑",
+                    color: "text-green-600",
+                  },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                      {item.label}
+                    </p>
+                    <p className={`text-sm font-semibold mt-0.5 ${item.color}`}>
+                      {item.value}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{item.sub}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="card-premium p-6">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg gold-gradient flex items-center justify-center shrink-0">
+                <Shield className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h3 className="font-display font-semibold text-base mb-1">
+                  Market Insight
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Gold prices are expected to continue their upward trajectory
+                  over the next 3 months, driven primarily by persistent
+                  inflation concerns and sustained central bank purchasing
+                  activity. The current market signal is bullish with high
+                  confidence. Consider reviewing your portfolio allocation in
+                  light of these projections.
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
